@@ -107,7 +107,6 @@ class Sprinklers:
                 RainDB.append(row)
         Rain = RainDB[5]
         self.Rain = Rain[1:5]
-        #print(self.Rain)
         self.RainTime = int(RainDB[0])
     def MySQL_Connection_Sprinkler(self):
         self.CheckNetwork()
@@ -197,15 +196,7 @@ class Sprinklers:
             self.Program.append(row[25])
             self.Program.append(row[26])
             self.Program.append(row[27])
-            #print(self.Program)
-        #if len(self.Program) > 28:
-            #if self.Program[0] == 'Disabled':
-                #p = 0
-                #for r in self.Program:
-                    #if p < 28:
-                        #self.Program.pop(0)
-                        #p += 1
-        if self.Program == []: ## Check to see if this still works correctly
+        if self.Program == []:
             self.LogEvent = 'All'
             self.Log()
             self.Enabled = 'Disabled'
@@ -295,7 +286,6 @@ class Sprinklers:
         self.PITime()
         ReadableTime = datetime.datetime.fromtimestamp(self.RainTime).strftime('%m-%d-%Y %H:%M:%S')
         WorkingDate = self.CurrentMonth + '/' + self.CurrentDay
-        #StartTime = self.StartTimeHR, self.StartTimeMin
         round = 1
         if round == 1:
             self.LogEvent = 'Wait'
@@ -327,7 +317,6 @@ class Sprinklers:
                 self.PITime()
                 self.PISleep()
                 self.StartTime = self.Program[2], self.Program[3]
-                #print(self.CurrentTimeMinute, LoopTime, self.StartTime, self.WorkableTime)
             round = 1
             self.Weather()
             self.LCD.clear()
@@ -421,7 +410,7 @@ class Sprinklers:
             self.LogDescription = 'No Temperature Reporting from Weather Station'
         if self.LogEvent == 'Run':
             Subject = 'Sprinkler System has begun..'
-            sendEmail = self.SendEmailError1
+            sendEmail = self.SendEmailRun
             self.LogDescription = 'Weather feed from wunderground has not been updated'
         if self.LogEvent == 'Error2':
             Subject = 'Error detected at'
@@ -437,7 +426,7 @@ class Sprinklers:
         self.sql.close()
         if sendEmail == 'Yes':
             self.sendEmail(D, timeformat, Subject)
-    def sendEmail(self, D, timeformat, Subject):  ## Encrypt password
+    def sendEmail(self, D, timeformat, Subject):
             sendto = self.EmailAddy
             user = self.SMTP_User
             password = self.SMTP_Password
@@ -529,7 +518,6 @@ class Sprinklers:
         valueA = 0x00
         valueB = 0x00
     def pinOn(self, bank, pin, Zone):
-        #print(bank, pin, "== ON")
         global valueA
         global valueB
         bit = pin - 1
@@ -549,7 +537,6 @@ class Sprinklers:
             self.UpdateZoneLog(Zone)
             self.PISleep5()
     def pinOff(self, bank, pin, Zone):
-        #print(bank, pin, "== OFF")
         global valueA
         global valueB
         bit = pin - 1
@@ -613,7 +600,6 @@ class Sprinklers:
                 self.pinOff(Bank, GPIOPin, Zone)
                 Zone += 1; round = 1; t += 1; p += 1
         print('It is working to this point')
-
     def RestBetweenZones(self, Zone):
         round = 1
         rest = self.CurrentTimeMinute + self.Program[4]
