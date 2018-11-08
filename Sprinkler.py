@@ -7,7 +7,6 @@ import os
 import socket
 import smtplib
 import smbus
-
 class Sprinklers:
     def __init__(self):
         self.SetupMCP23017()
@@ -409,9 +408,9 @@ class Sprinklers:
             sendEmail = self.SendEmailNoTemp
             self.LogDescription = 'No Temperature Reporting from Weather Station'
         if self.LogEvent == 'Run':
-            Subject = 'Sprinkler System has begun..'
+            Subject = 'Sprinkler System has begun at'
             sendEmail = self.SendEmailRun
-            self.LogDescription = 'Weather feed from wunderground has not been updated'
+            self.LogDescription = 'Sprinkler System has begun to run the Zones'
         if self.LogEvent == 'Error2':
             Subject = 'Error detected at'
             sendEmail = self.SendEmailError2
@@ -566,7 +565,6 @@ class Sprinklers:
             state = ((valueB & (1 << bit)) != 0)
         return state
     def pinAllOff(self):
-        print("All off called")
         global valueA
         global valueB
         valueA = 0x0
@@ -577,29 +575,26 @@ class Sprinklers:
         self.LogEvent = 'Run'
         self.Log()
         Zone = 1; round = 1; t = 12; p = 0
-        for p in range(15):
+        for p in range(16):
             GPIOPin = self.Parameters[p]
             ZoneRunTime = self.CurrentTimeMinute + self.Program[t]
-            if ZoneRunTime >= 60:
-                RunTime = ZoneRunTime - 60
-                ZoneEndTime = self.CurrentTimeHour + 1, RunTime
-            else:
-                if 0 <= p <= 7:
-                    Bank = 'A'
-                if 8 <= p <= 15:
-                    Bank = 'B'
-                    GPIOPin = self.Parameters[p] - 8
-                while self.CurrentTimeMinute < ZoneRunTime:
-                    self.LCD_Clock()
-                    if round == 1:
-                        self.pinOn(Bank, GPIOPin, Zone)
-                        self.pinStatus(Bank,GPIOPin)
-                        round += 1
-                    self.PITime()
-                    self.PISleep()
-                self.pinOff(Bank, GPIOPin, Zone)
-                Zone += 1; round = 1; t += 1; p += 1
-        print('It is working to this point')
+            self.GreaterThanHRRunTime(ZoneRunTime)
+            if 0 <= p <= 7:
+                Bank = 'A'
+            if 8 <= p <= 15:
+                Bank = 'B'
+                GPIOPin = self.Parameters[p] - 8
+            while self.CurrentTimeMinute < ZoneRunTime:
+                self.LCD_Clock()
+                if round == 1:
+                    self.pinOn(Bank, GPIOPin, Zone)
+                    self.pinStatus(Bank,GPIOPin)
+                    round += 1
+                self.PITime()
+                self.PISleep()
+            self.pinOff(Bank, GPIOPin, Zone)
+            Zone += 1; round = 1; t += 1; p += 1
+        self.LCD.clear()
     def RestBetweenZones(self, Zone):
         round = 1
         rest = self.CurrentTimeMinute + self.Program[4]
@@ -615,5 +610,9 @@ class Sprinklers:
             self.PITime()
             self.LCD_Clock()
             self.PISleep()
+    def GreaterThanHRRunTime(self, ZoneRunTime):
+        if ZoneRunTime >= 60:  # Needs Testing
+            RunTime = ZoneRunTime - 60
+            self.ZoneEndTime = self.CurrentTimeHour + 1, RunTime
 run = Sprinklers()
 
