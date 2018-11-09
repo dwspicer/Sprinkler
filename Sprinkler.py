@@ -50,6 +50,21 @@ class Sprinklers:
         self.CurrentDay = self.CurrentSystemTime.strftime('%d')
         self.CurrentYear = self.CurrentSystemTime.strftime('%y')
         self.WorkableTime = self.CurrentTimeHour, self.CurrentTimeMinute
+        Day = self.CurrentSystemTime.today().weekday()
+        if Day == 0:
+            self.Day = 'Monday'
+        if Day == 1:
+            self.Day = 'Tuesday'
+        if Day == 2:
+            self.Day = 'Wednesday'
+        if Day == 3:
+            self.Day = 'Thursday'
+        if Day == 4:
+            self.Day = 'Friday'
+        if Day == 5:
+            self.Day = 'Saturday'
+        if Day == 6:
+            self.Day = 'Sunday'
     def Weather(self):
         self.LCD.backlight(self.LCD.TEAL)
         self.LCD.clear()
@@ -572,29 +587,54 @@ class Sprinklers:
         valueB = 0x0
         self.bus.write_byte_data(self.ADDR, self.OLATB, valueB)
     def RunZones(self):
-        self.LogEvent = 'Run'
-        self.Log()
-        Zone = 1; round = 1; t = 12; p = 0
-        for p in range(16):
-            GPIOPin = self.Parameters[p]
-            ZoneRunTime = self.CurrentTimeMinute + self.Program[t]
-            self.GreaterThanHRRunTime(ZoneRunTime)
-            if 0 <= p <= 7:
-                Bank = 'A'
-            if 8 <= p <= 15:
-                Bank = 'B'
-                GPIOPin = self.Parameters[p] - 8
-            while self.CurrentTimeMinute < ZoneRunTime:
-                self.LCD_Clock()
-                if round == 1:
-                    self.pinOn(Bank, GPIOPin, Zone)
-                    self.pinStatus(Bank,GPIOPin)
-                    round += 1
-                self.PITime()
-                self.PISleep()
-            self.pinOff(Bank, GPIOPin, Zone)
-            Zone += 1; round = 1; t += 1; p += 1
-        self.LCD.clear()
+        self.CheckDayofWeektoRun()
+
+
+        if self.Go == True:
+            self.LogEvent = 'Run'
+            self.Log()
+            Zone = 1; round = 1; t = 12; p = 0
+            for p in range(16):
+                GPIOPin = self.Parameters[p]
+                ZoneRunTime = self.CurrentTimeMinute + self.Program[t]
+                if ZoneRunTime < 60:
+                    if 0 <= p <= 7:
+                        Bank = 'A'
+                    if 8 <= p <= 15:
+                        Bank = 'B'
+                        GPIOPin = self.Parameters[p] - 8
+                    while self.CurrentTimeMinute < ZoneRunTime:
+                        self.LCD_Clock()
+                        if round == 1:
+                            self.pinOn(Bank, GPIOPin, Zone)
+                            self.pinStatus(Bank, GPIOPin)
+                            round += 1
+                        self.PITime()
+                        self.PISleep()
+
+
+
+                if ZoneRunTime >= 60:
+                    RunTime = ZoneRunTime - 60
+                    self.ZoneEndTime = self.CurrentTimeHour + 1, RunTime
+                if 0 <= p <= 7:
+                    Bank = 'A'
+                if 8 <= p <= 15:
+                    Bank = 'B'
+                    GPIOPin = self.Parameters[p] - 8
+                while self.CurrentTimeMinute < ZoneRunTime:
+                    self.LCD_Clock()
+                    if round == 1:
+                        self.pinOn(Bank, GPIOPin, Zone)
+                        self.pinStatus(Bank,GPIOPin)
+                        round += 1
+                    self.PITime()
+                    self.PISleep()
+                self.pinOff(Bank, GPIOPin, Zone)
+                Zone += 1; round = 1; t += 1; p += 1
+            self.LCD.clear()
+        if self.Go == False:
+            self.WaitForStartTime()
     def RestBetweenZones(self, Zone):
         round = 1
         rest = self.CurrentTimeMinute + self.Program[4]
@@ -610,9 +650,30 @@ class Sprinklers:
             self.PITime()
             self.LCD_Clock()
             self.PISleep()
-    def GreaterThanHRRunTime(self, ZoneRunTime):
-        if ZoneRunTime >= 60:  # Needs Testing
-            RunTime = ZoneRunTime - 60
-            self.ZoneEndTime = self.CurrentTimeHour + 1, RunTime
+
+    def CheckDayofWeektoRun(self):
+        if self.Day == 'Monday' and self.Program[6] == 'Yes':
+            self.Go = True
+            return
+        elif self.Day == 'Tuesday' and self.Program[7] == 'Yes':
+            self.Go = True
+            return
+        elif self.Day == 'Wednesday' and self.Program[8] == 'Yes':
+            self.Go = True
+            return
+        elif self.Day == 'Thursday' and self.Program[9] == 'Yes':
+            self.Go = True
+            return
+        elif self.Day == 'Friday' and self.Program[10] == 'Yes':
+            self.Go = True
+            return
+        elif self.Day == 'Saturday' and self.Program[11] == 'Yes':
+            self.Go = True
+            return
+        elif self.Day == 'Sunday' and self.Program[5] == 'Yes':
+            self.Go = True
+            return
+        else:
+            self.Go = False
 run = Sprinklers()
 
