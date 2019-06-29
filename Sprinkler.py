@@ -7,6 +7,7 @@ import os
 import socket
 import smtplib
 import smbus
+
 class Sprinklers:
     def __init__(self):
         self.SetupMCP23017()
@@ -120,7 +121,7 @@ class Sprinklers:
             else:
                 RainDB.append(row)
         Rain = RainDB[5]
-        self.Rain = Rain[1:5]
+        self.Rain = Rain[1:6]
         self.RainTime = int(RainDB[0])
     def MySQL_Connection_Sprinkler(self):
         self.CheckNetwork()
@@ -270,7 +271,7 @@ class Sprinklers:
     def IP(self):
         self.CheckNetwork()
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("10.10.204.254", 80))
+        s.connect(("1.1.1.1", 80))
         self.LCD.setCursor(0, 1)
         self.LCD.message('IP:%s' % (s.getsockname()[0]))
     def ProgramEnableDisable(self):
@@ -298,43 +299,47 @@ class Sprinklers:
             self.WaitForStartTime()
     def WaitForStartTime(self): ## finish this section
         self.PITime()
-        ReadableTime = datetime.datetime.fromtimestamp(self.RainTime).strftime('%m-%d-%Y %H:%M:%S')
         WorkingDate = self.CurrentMonth + '/' + self.CurrentDay
         round = 1
         if round == 1:
             self.LogEvent = 'Wait'
             self.Log()
-        while self.StartTime != self.WorkableTime:
-            LoopTime = self.CurrentTimeMinute + 3
-            if LoopTime >= 60:
-                LoopTime = self.CurrentTimeMinute + 4
-            #if WorkingDate <= '9/25':  ## Commented out for testing
-                #self.LogEvent = 'Winterize'  ## Commented out for testing
-                #self.Log()  ## Commented out for testing
-            #if self.Temp_f <= 55:  ## Commented out for testing
-                #self.LogEvent = 'Temp'  ## Commented out for testing
-                #self.Log()  ## Commented out for testing
-                #self.CountDown()  ## Commented out for testing
-            #if self.Rain >= 0.10:  ## Commented out for testing
-                #self.LogEvent = 'Rain'  ## Commented out for testing
-                #self.CountDown()  ## Commented out for testing
-            while self.CurrentTimeMinute != LoopTime:
-                if self.StartTime == self.WorkableTime:
-                    self.RunZones()
-                self.LCD.backlight(self.LCD.YELLOW)
-                round += 1
-                self.PITime()
-                self.MySQL_Connection_Sprinkler()
-                self.SprinklerProgram()
-                self.LCD_Clock()
-                self.IP()
-                self.PITime()
-                self.PISleep()
-                self.StartTime = self.Program[2], self.Program[3]
-            round = 1
-            self.Weather()
-            self.LCD.clear()
-        self.RunZones()
+        self.CheckDayofWeektoRun()
+        if self.Go == True:
+            while self.StartTime != self.WorkableTime:
+                LoopTime = self.CurrentTimeMinute + 3
+                if LoopTime >= 60:
+                    LoopTime = self.CurrentTimeMinute + 4
+                #if WorkingDate <= '9/25':
+                    #self.LogEvent = 'Winterize'
+                    #self.Log()
+                #if self.Temp_f <= 40:
+                    #self.LogEvent = 'Temp'
+                    #self.Log()
+                    #self.CountDown()
+                #if self.Rain >= 0.10:  ## Commented out for testing
+                    #self.LogEvent = 'Rain'  ## Commented out for testing
+                    #self.CountDown()  ## Commented out for testing
+                while self.CurrentTimeMinute != LoopTime:
+                    if self.StartTime == self.WorkableTime:
+                        self.RunZones()
+                    self.LCD.backlight(self.LCD.YELLOW)
+                    round += 1
+                    self.PITime()
+                    self.MySQL_Connection_Sprinkler()
+                    self.SprinklerProgram()
+                    self.LCD_Clock()
+                    self.IP()
+                    self.PITime()
+                    self.PISleep()
+                    self.StartTime = self.Program[2], self.Program[3]
+                round = 1
+                self.Weather()
+                self.LCD.clear()
+            self.RunZones()
+        if self.Go == False:
+            self.PISleep60()
+            self.__init__()
     def UpdateZoneLog(self, Zone):
         self.MySQL_Connection_Sprinkler()
         ZoneLog = []
@@ -389,6 +394,34 @@ class Sprinklers:
             self.PITime()
         self.LogEvent = 'Resume'
         self.Log()
+    def CountDownRunningLessthanHR(self, ZoneRunTime):
+        self.LCD.clear()
+        round = 1
+        self.LCD.setCursor(0,0)
+        self.LCD.message('Remain Run Time')
+        while round <= 15:
+            round += 1
+            WaitMin = ZoneRunTime - self.CurrentTimeMinute
+            timeformat = '{:02d}'.format(WaitMin)
+            self.LCD.setCursor(5, 1)
+            self.LCD.message((':%s min') % (timeformat))
+            self.PISleep1()
+            self.PITime()
+        self.CheckRemainTime = self.CurrentTimeMinute + 3
+    def CountDownRunningGreaterthanHR(self, RunTime): # Check this method runs correctly
+        self.LCD.clear()
+        round = 1
+        self.LCD.setCursor(0,0)
+        self.LCD.message('Remain Run Time')
+        while round <= 15:
+            round += 1
+            WaitMin = RunTime - self.CurrentTimeMinute
+            timeformat = '{:02d}'.format(WaitMin)
+            self.LCD.setCursor(5, 1)
+            self.LCD.message((':%s min') % (timeformat))
+            self.PISleep1()
+            self.PITime()
+        self.CheckRemainTime = self.CurrentTimeMinute + 3
     def Log(self):
         timeformat = '{:02d}:{:02d}'.format(self.CurrentTimeHour, self.CurrentTimeMinute)
         D = self.CurrentMonth+'/'+self.CurrentDay+'/'+self.CurrentYear
@@ -426,10 +459,10 @@ class Sprinklers:
             Subject = 'Sprinkler System has begun at'
             sendEmail = self.SendEmailRun
             self.LogDescription = 'Sprinkler System has begun to run the Zones'
-        if self.LogEvent == 'Error2':
-            Subject = 'Error detected at'
-            sendEmail = self.SendEmailError2
-            self.LogDescription = 'Old weather data detect. Discarding this entry'
+        if self.LogEvent == 'Done':
+            Subject = 'Finished at'
+            sendEmail = self.SendEmailDone
+            self.LogDescription = 'All Zones have finished running.'
         if self.LogEvent == 'Check':
             Subject = 'Program needs checked'
             sendEmail == 'Yes'
@@ -489,7 +522,7 @@ class Sprinklers:
         self.SendEmailWinterize = user[10]
         self.SendEmailNoTemp = user[11]
         self.SendEmailRun = user[12]
-        self.SendEmailError2 = user[13]
+        self.SendEmailDone = user[13]
     def Configuration(self):
         self.MySQL_Connection_Sprinkler()
         Config = []
@@ -517,6 +550,10 @@ class Sprinklers:
     def PISleep60(self):
         time.sleep(60)
     def SetupMCP23017(self):
+        global valueA
+        global valueB
+        valueA = 0xff
+        valueB = 0xff
         self.ADDR = 0x21
         IODIRA = 0x00
         IODIRB = 0x01
@@ -525,21 +562,19 @@ class Sprinklers:
         self.OLATA = 0x14
         self.OLATB = 0x15
         self.bus = smbus.SMBus(1)
+        self.bus.write_byte_data(self.ADDR, self.OLATA, valueA)
+        self.bus.write_byte_data(self.ADDR, self.OLATB, valueA)
         self.bus.write_byte_data(self.ADDR, IODIRA, 0x00)
         self.bus.write_byte_data(self.ADDR, IODIRB, 0x00)
-        global valueA
-        global valueB
-        valueA = 0x00
-        valueB = 0x00
     def pinOn(self, bank, pin, Zone):
         global valueA
         global valueB
         bit = pin - 1
         if bank == 'A':
-            valueA = valueA | (1 << bit)
+            valueA = valueA & (0xff - (1 << bit))
             self.bus.write_byte_data(self.ADDR, self.OLATA, valueA)
         if bank == 'B':
-            valueB = valueB | (1 << bit)
+            valueB = valueB & (0xff - (1 << bit))
             self.bus.write_byte_data(self.ADDR, self.OLATB, valueB)
         if bank == 'A' or bank == 'B':
             self.LCD.clear()
@@ -555,10 +590,10 @@ class Sprinklers:
         global valueB
         bit = pin - 1
         if bank == 'A':
-            valueA = valueA & (0xff - (1 << bit))
+            valueA = valueA | (1 << bit)
             self.bus.write_byte_data(self.ADDR, self.OLATA, valueA)
         if bank == 'B':
-            valueB = valueB & (0xff - (1 << bit))
+            valueB = valueB | (1 << bit)
             self.bus.write_byte_data(self.ADDR, self.OLATB, valueB)
         if bank == 'A' or bank == 'B':
             self.LCD.clear()
@@ -570,53 +605,42 @@ class Sprinklers:
             self.UpdateZoneLog(Zone)
             self.PISleep5()
             self.RestBetweenZones(Zone)
-    def pinStatus(self, bank, pin):
+    def pinStatus(self, bank, pin, Zone):
         global valueA
         global valueB
         bit = pin - 1
         if bank == 'A' or bank == 'a':
-            state = ((valueA & (1 << bit)) != 0)
+            state = ((valueA & (1 << bit)) != 1)
         else:
-            state = ((valueB & (1 << bit)) != 0)
+            state = ((valueB & (1 << bit)) != 1)
+        self.CheckZoneisRunning(state, bank, pin, Zone)
         return state
     def pinAllOff(self):
         global valueA
         global valueB
-        valueA = 0x0
+        valueA = 0xff
         self.bus.write_byte_data(self.ADDR, self.OLATA, valueA)
-        valueB = 0x0
+        valueB = 0xff
         self.bus.write_byte_data(self.ADDR, self.OLATB, valueB)
     def RunZones(self):
-        self.CheckDayofWeektoRun()
-
-
-        if self.Go == True:
-            self.LogEvent = 'Run'
-            self.Log()
-            Zone = 1; round = 1; t = 12; p = 0
-            for p in range(16):
-                GPIOPin = self.Parameters[p]
-                ZoneRunTime = self.CurrentTimeMinute + self.Program[t]
-                if ZoneRunTime < 60:
-                    if 0 <= p <= 7:
-                        Bank = 'A'
-                    if 8 <= p <= 15:
-                        Bank = 'B'
-                        GPIOPin = self.Parameters[p] - 8
-                    while self.CurrentTimeMinute < ZoneRunTime:
-                        self.LCD_Clock()
-                        if round == 1:
-                            self.pinOn(Bank, GPIOPin, Zone)
-                            self.pinStatus(Bank, GPIOPin)
-                            round += 1
-                        self.PITime()
-                        self.PISleep()
-
-
-
-                if ZoneRunTime >= 60:
-                    RunTime = ZoneRunTime - 60
-                    self.ZoneEndTime = self.CurrentTimeHour + 1, RunTime
+        self.CheckRemainTime = self.CurrentTimeMinute + 3
+        self.LogEvent = 'Run'
+        self.Log()
+        Zone = 1; round = 1; t = 12; p = 0
+        for p in range(16):
+            GPIOPin = self.Parameters[p]
+            if self.Program[t] is None:
+                self.status = 'Run Time set to Null in Database. Restarting Program'
+                self.UpdateZoneLog(Zone)
+                self.PISleep60()
+                self.__init__()
+            ZoneRunTime = self.CurrentTimeMinute + self.Program[t]
+            if self.Program[t] == 0:
+                self.status = 'Zero Run Time in Database'
+                self.UpdateZoneLog(Zone)
+                self.PISleep60()
+                self.__init__()
+            if ZoneRunTime < 60:
                 if 0 <= p <= 7:
                     Bank = 'A'
                 if 8 <= p <= 15:
@@ -624,17 +648,55 @@ class Sprinklers:
                     GPIOPin = self.Parameters[p] - 8
                 while self.CurrentTimeMinute < ZoneRunTime:
                     self.LCD_Clock()
+                    if self.CheckRemainTime == self.CurrentTimeMinute:
+                        self.CountDownRunningLessthanHR(ZoneRunTime)
+                        self.LCD.clear()
+                        self.LCD_Clock()
+                        self.LCD.setCursor(0, 1)
+                        self.LCD.message('Zone %s Running.' % (Zone))
                     if round == 1:
                         self.pinOn(Bank, GPIOPin, Zone)
-                        self.pinStatus(Bank,GPIOPin)
+                        self.pinStatus(Bank, GPIOPin, Zone)
                         round += 1
                     self.PITime()
                     self.PISleep()
-                self.pinOff(Bank, GPIOPin, Zone)
-                Zone += 1; round = 1; t += 1; p += 1
-            self.LCD.clear()
-        if self.Go == False:
-            self.WaitForStartTime()
+            if ZoneRunTime >= 60:
+                RunTime = ZoneRunTime - 60
+                ZoneEndTime = self.CurrentTimeHour + 1, RunTime
+                if self.CurrentTimeHour + 1 >= 24:
+                    ZoneEndTime = 0, RunTime
+                    #print(ZoneEndTime)
+                if 0 <= p <= 7:
+                    Bank = 'A'
+                if 8 <= p <= 15:
+                    Bank = 'B'
+                    GPIOPin = self.Parameters[p] - 8
+                while self.WorkableTime < ZoneEndTime:
+                    self.LCD_Clock()
+                    if self.CheckRemainTime == self.CurrentTimeMinute: # Check to make sure that this works
+                        self.CountDownRunningLessthanHR(RunTime)
+                        self.LCD.clear()
+                        self.LCD_Clock()
+                        self.LCD.setCursor(0, 1)
+                        self.LCD.message('Zone %s Running.' % (Zone))
+                    if round == 1:
+                        self.pinOn(Bank, GPIOPin, Zone)
+                        self.pinStatus(Bank,GPIOPin,Zone)
+                        round += 1
+                    self.PITime()
+                    self.PISleep()
+            self.pinOff(Bank, GPIOPin, Zone)
+            Zone += 1; round = 1; t += 1; p += 1
+        self.LCD.clear()
+        self.status = 'All Zones have Finished'
+        self.UpdateZoneLog(Zone)
+        self.LogEvent = 'Done'
+        self.Log()
+        self.LogEvent = 'Wait'
+        self.Log()
+    def CheckZoneisRunning(self, state, bank, pin, Zone):
+        if state == False:
+            self.pinOn(self,bank, pin, Zone)
     def RestBetweenZones(self, Zone):
         round = 1
         rest = self.CurrentTimeMinute + self.Program[4]
@@ -647,10 +709,15 @@ class Sprinklers:
         self.status = 'Sleeping...'
         self.UpdateZoneLog(Zone)
         while self.WorkableTime < RestEndTime:
+            if rest == 60:
+                rest = 0
+                RestEndTime = self.CurrentTimeHour + 1, rest
+            if self.CurrentTimeHour == 24:
+                self.CurrentTimeHour = 0
+                self.PISleep60()
             self.PITime()
             self.LCD_Clock()
             self.PISleep()
-
     def CheckDayofWeektoRun(self):
         if self.Day == 'Monday' and self.Program[6] == 'Yes':
             self.Go = True
@@ -675,5 +742,14 @@ class Sprinklers:
             return
         else:
             self.Go = False
+
+#=======================================================================================================================
+# Things to work on
+# - Create a method to have a countdown remaining when the zone is running. Show that every 3 minutes
+# - ReActivate the commented out section of the program that were disabled for testing
+# - Need to add check for Rain when the zone is running.
+# - Create a setup.py installer.
+# - in ChecktheNetwork, when it fails add to log stating it is rebooting
+
 run = Sprinklers()
 
