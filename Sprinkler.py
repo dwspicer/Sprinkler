@@ -121,7 +121,7 @@ class Sprinklers:
             else:
                 RainDB.append(row)
         Rain = RainDB[5]
-        self.Rain = Rain[1:6]
+        self.Rain = float(Rain[1:6])
         self.RainTime = int(RainDB[0])
     def MySQL_Connection_Sprinkler(self):
         self.CheckNetwork()
@@ -310,16 +310,17 @@ class Sprinklers:
                 LoopTime = self.CurrentTimeMinute + 3
                 if LoopTime >= 60:
                     LoopTime = self.CurrentTimeMinute + 4
-                #if WorkingDate <= '9/25':
+                #if self.CurrentMonth >= 9 and self.CurrentDay >= 25: Math doesn't work. Need to get fixed
+                        #WorkingDate >= '9/25': ##9/25
                     #self.LogEvent = 'Winterize'
                     #self.Log()
-                #if self.Temp_f <= 40:
+                #if self.Temp_f <= 40: # Math doesn't work. Need to get fixed
                     #self.LogEvent = 'Temp'
                     #self.Log()
                     #self.CountDown()
-                #if self.Rain >= 0.10:  ## Commented out for testing
-                    #self.LogEvent = 'Rain'  ## Commented out for testing
-                    #self.CountDown()  ## Commented out for testing
+                if self.Rain >= 0.10:
+                    self.LogEvent = 'Rain'
+                    self.CountDown()
                 while self.CurrentTimeMinute != LoopTime:
                     if self.StartTime == self.WorkableTime:
                         self.RunZones()
