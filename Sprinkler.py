@@ -314,7 +314,7 @@ class Sprinklers:
                         #WorkingDate >= '9/25': ##9/25
                     #self.LogEvent = 'Winterize'
                     #self.Log()
-                #if self.Temp_f <= 40: # Math doesn't work. Need to get fixed
+                if self.Temp_f <= 40: # Math doesn't work. Need to get fixed
                     #self.LogEvent = 'Temp'
                     #self.Log()
                     #self.CountDown()
