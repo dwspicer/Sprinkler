@@ -42,16 +42,18 @@ class Sprinklers:
         self.LCD.home()
         self.LCD.message(datetime.datetime.now().strftime('%b %d %H:%M:%S'))
     def PITime(self):
+        self.CurrentDateIntVersion = datetime.date.today()
         self.CurrentSystemTime = datetime.datetime.now()
         self.CurrentTimeHour = self.CurrentSystemTime.hour
         self.CurrentTimeMinute = self.CurrentSystemTime.minute
         self.CurrentTimeSecond = self.CurrentSystemTime.second
         self.CurrentSystemDate = self.CurrentSystemTime.date()
         self.CurrentMonth = self.CurrentSystemTime.strftime('%m')
-        self.CurrentMonthIntVersion = int(self.CurrentSystemTime.strftime('%m'))
+        self.CurrentMonthIntVersion = self.CurrentDateIntVersion.month
         self.CurrentDay = self.CurrentSystemTime.strftime('%d')
-        self.CurrentDayIntVersion = int(self.CurrentSystemTime.strftime('%d'))
+        self.CurrentDayIntVersion = self.CurrentDateIntVersion.day
         self.CurrentYear = self.CurrentSystemTime.strftime('%y')
+        self.CurrentYearIntVersion = self.CurrentDateIntVersion.year
         self.WorkableTime = self.CurrentTimeHour, self.CurrentTimeMinute
         Day = self.CurrentSystemTime.today().weekday()
         if Day == 0:
@@ -299,9 +301,8 @@ class Sprinklers:
             self.LCD_Clock()
             self.IP()
             self.WaitForStartTime()
-    def WaitForStartTime(self): ## finish this section
+    def WaitForStartTime(self):
         self.PITime()
-        WorkingDate = self.CurrentMonth + '/' + self.CurrentDay
         round = 1
         if round == 1:
             self.LogEvent = 'Wait'
@@ -430,7 +431,6 @@ class Sprinklers:
         self.CheckRemainTime = self.CurrentTimeMinute + 3
     def Log(self):
         timeformat = '{:02d}:{:02d}'.format(self.CurrentTimeHour, self.CurrentTimeMinute)
-        D = self.CurrentMonth+'/'+self.CurrentDay+'/'+self.CurrentYear
         self.MySQL_Connection_Sprinkler()
         self.cur = self.sql.cursor()
         if self.LogEvent == 'Rain':
@@ -474,12 +474,12 @@ class Sprinklers:
             sendEmail == 'Yes'
             self.LogDescription = 'Program match the criteria and needs to be check.'
         self.cur.execute(("INSERT INTO `Log` (Date, Time, Event, Description) VALUES ('%s', '%s', '%s', '%s')"
-                          % (D, timeformat, self.LogEvent, self.LogDescription)))
+                          % (self.CurrentDateIntVersion, timeformat, self.LogEvent, self.LogDescription)))
         self.sql.commit()
         self.sql.close()
         if sendEmail == 'Yes':
-            self.sendEmail(D, timeformat, Subject)
-    def sendEmail(self, D, timeformat, Subject):
+            self.sendEmail(timeformat, Subject)
+    def sendEmail(self, timeformat, Subject):
             sendto = self.EmailAddy
             user = self.SMTP_User
             password = self.SMTP_Password
@@ -490,7 +490,7 @@ class Sprinklers:
             smtpserver.ehlo()
             smtpserver.login(user, password)
             header = 'To:' + sendto + '\n' + 'From: ' + user + '\n' + 'Subject:' + Subject + ' ' + timeformat + '\n'
-            msgbody = header + '\nDate: ' + D + '\nTime: ' + timeformat + '\nEvent: ' + self.LogEvent + '\nDescription: ' + self.LogDescription
+            msgbody = header + '\nDate: ' + str(self.CurrentDateIntVersion) + '\nTime: ' + timeformat + '\nEvent: ' + self.LogEvent + '\nDescription: ' + self.LogDescription
             smtpserver.sendmail(user, sendto, msgbody)
             smtpserver.close()
     def GetUser(self):  ##Good to Go
