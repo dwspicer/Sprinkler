@@ -341,17 +341,21 @@ class Sprinklers:
             self.PISleep60()
             self.__init__()
     def UpdateZoneLog(self, Zone):
+        FormatDate = str(self.CurrentYear) + '-' + str(self.CurrentMonth) + '-' + str(self.CurrentDay)
+        FormatTime = str(self.CurrentTimeHour) + ':' + str(self.CurrentTimeMinute) + ':' + str(self.CurrentTimeSecond)
         self.MySQL_Connection_Sprinkler()
         ZoneLog = []
         self.cur = self.sql.cursor()
         ZoneLog.append(Zone)
         ZoneLog.append(self.status)
-        ZoneLog.append(self.CurrentSystemTime)
+        ZoneLog.append(FormatDate)
+        ZoneLog.append(FormatTime)
         Zone = ZoneLog[0]
         Status = ZoneLog[1]
-        STime = ZoneLog[2]
-        self.cur.execute(("INSERT INTO `Sprinkler_log` (`Zone`, `Status`,`Time`) "
-                          "VALUES ('%s', '%s', '%s')" % (Zone, Status, STime)))
+        SDate = ZoneLog[2]
+        STime = ZoneLog[3]
+        self.cur.execute(("INSERT INTO `Sprinkler_log` (`Zone`, `Status`,`Date`,`Time`) "
+                          "VALUES ('%s', '%s', '%s', '%s')" % (Zone, Status, SDate, STime)))
         self.sql.commit()
         self.cur.close()
     def CheckNetwork(self):
@@ -750,6 +754,7 @@ class Sprinklers:
 # - Need to add check for Rain when the zone is running.
 # - Create a setup.py installer.
 # - in ChecktheNetwork, when it fails add to log stating it is rebooting
+# - Add math for runtime for when NULL
 
 run = Sprinklers()
 
