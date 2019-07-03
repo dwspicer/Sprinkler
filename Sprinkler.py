@@ -103,7 +103,7 @@ class Sprinklers:
         weather[51] = lastOld[:-1]
         self.cur.close()
         self.Epoch = int(weather[0])
-        self.Temp_f = weather[7]
+        self.Temp_f = float(weather[7])
         if self.Temp_f == 'None':
             self.LogEvent = 'No Temp'
             self.Log()
@@ -314,10 +314,10 @@ class Sprinklers:
                         #WorkingDate >= '9/25': ##9/25
                     #self.LogEvent = 'Winterize'
                     #self.Log()
-                #if self.Temp_f <= 40: # Math doesn't work. Need to get fixed
-                    #self.LogEvent = 'Temp'
-                    #self.Log()
-                    #self.CountDown()
+                if self.Temp_f <= 40:
+                    self.LogEvent = 'Temp'
+                    self.Log()
+                    self.CountDown()
                 if self.Rain >= 0.10:
                     self.LogEvent = 'Rain'
                     self.CountDown()
