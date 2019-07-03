@@ -48,7 +48,9 @@ class Sprinklers:
         self.CurrentTimeSecond = self.CurrentSystemTime.second
         self.CurrentSystemDate = self.CurrentSystemTime.date()
         self.CurrentMonth = self.CurrentSystemTime.strftime('%m')
+        self.CurrentMonthIntVersion = int(self.CurrentSystemTime.strftime('%m'))
         self.CurrentDay = self.CurrentSystemTime.strftime('%d')
+        self.CurrentDayIntVersion = int(self.CurrentSystemTime.strftime('%d'))
         self.CurrentYear = self.CurrentSystemTime.strftime('%y')
         self.WorkableTime = self.CurrentTimeHour, self.CurrentTimeMinute
         Day = self.CurrentSystemTime.today().weekday()
@@ -310,10 +312,9 @@ class Sprinklers:
                 LoopTime = self.CurrentTimeMinute + 3
                 if LoopTime >= 60:
                     LoopTime = self.CurrentTimeMinute + 4
-                #if self.CurrentMonth >= 9 and self.CurrentDay >= 25: Math doesn't work. Need to get fixed
-                        #WorkingDate >= '9/25': ##9/25
-                    #self.LogEvent = 'Winterize'
-                    #self.Log()
+                if self.CurrentMonthIntVersion >= 9 and self.CurrentDayIntVersion >= 25:
+                    self.LogEvent = 'Winterize'
+                    self.Log()
                 if self.Temp_f <= 40:
                     self.LogEvent = 'Temp'
                     self.Log()
