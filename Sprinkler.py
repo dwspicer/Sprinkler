@@ -694,7 +694,7 @@ class Sprinklers:
             self.pinOff(Bank, GPIOPin, Zone)
             Zone += 1; round = 1; t += 1; p += 1
         self.LCD.clear()
-        self.status = 'All Zones have Finished'
+        self.status = 'Finished...'
         self.UpdateZoneLog(Zone)
         self.LogEvent = 'Done'
         self.Log()
