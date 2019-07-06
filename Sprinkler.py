@@ -588,7 +588,7 @@ class Sprinklers:
             self.LCD_Clock()
             self.LCD.setCursor(0, 1)
             self.LCD.message('Zone %s Running.' % (Zone))
-            self.status = 'Zone Running...'
+            self.status = 'Running...'
             self.UpdateZoneLog(Zone)
             self.PISleep5()
     def pinOff(self, bank, pin, Zone):
@@ -607,7 +607,7 @@ class Sprinklers:
             self.LCD_Clock()
             self.LCD.setCursor(0,1)
             self.LCD.message('Zone %s Shutdown.' % (Zone))
-            self.status = 'Zone Shutdown'
+            self.status = 'Shutdown...'
             self.UpdateZoneLog(Zone)
             self.PISleep5()
             self.RestBetweenZones(Zone)
