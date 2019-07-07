@@ -344,7 +344,8 @@ class Sprinklers:
             self.PISleep60()
             self.__init__()
     def UpdateZoneLog(self, Zone):
-        FormatDate = str(self.CurrentYear) + '-' + str(self.CurrentMonth) + '-' + str(self.CurrentDay)
+        FormatDate = str(self.CurrentDateIntVersion.year) + '-' + str(self.CurrentDateIntVersion.month) + '-' + str(self.CurrentDateIntVersion.day)
+        #FormatDate = str(self.CurrentYear) + '-' + str(self.CurrentMonth) + '-' + str(self.CurrentDay)
         FormatTime = str(self.CurrentTimeHour) + ':' + str(self.CurrentTimeMinute) + ':' + str(self.CurrentTimeSecond)
         self.MySQL_Connection_Sprinkler()
         ZoneLog = []
@@ -375,16 +376,24 @@ class Sprinklers:
         self.PITime()
         self.LCD.clear()
         self.LCD.backlight(self.LCD.WHITE)
-        WaitHR = 23 - self.CurrentTimeHour
-        WaitMin = 59 - self.CurrentTimeMinute
+        if self.Rain >= .50:
+            WaitHR = 48 - self.CurrentTimeHour
+            WaitMin = 59 - self.CurrentTimeMinute
+        else:
+            WaitHR = 23 - self.CurrentTimeHour
+            WaitMin = 59 - self.CurrentTimeMinute
         while self.CurrentTimeHour != WaitHR:
             while self.CurrentTimeMinute != WaitMin:
                 round = 1
-                WaitHR = 23 - self.CurrentTimeHour
-                WaitMin = 59 - self.CurrentTimeMinute
+                if self.Rain >= .50:
+                    WaitHR = 48 - self.CurrentTimeHour
+                    WaitMin = 59 - self.CurrentTimeMinute
+                else:
+                    WaitHR = 23 - self.CurrentTimeHour
+                    WaitMin = 59 - self.CurrentTimeMinute
                 timeformat = '{:02d}:{:02d}'.format(WaitHR, WaitMin)
                 self.LCD.clear()
-                self.LCD.setCursor(0, 0)
+                self.LCD.setCursor(3, 0)
                 self.LCD.message(('%s Sleep') % (self.LogEvent))
                 self.LCD.setCursor(5, 1)
                 self.LCD.message('%s' % (timeformat))
