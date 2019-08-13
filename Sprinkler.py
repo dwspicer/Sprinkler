@@ -10,14 +10,15 @@ import smbus
 
 class Sprinklers:
     def __init__(self):
+        version = '3.0.15'
         self.SetupMCP23017()
         self.pinAllOff()
         self.GetUser()
         self.Configuration()
         self.CharLCDPlate()
+        self.WelcomeMessage(version)
         self.LCD.clear()
         self.PITime()
-        #self.LCD.clear()
         self.SystemInformation()
         self.PISleep5()
         self.LCD.clear()
@@ -35,6 +36,15 @@ class Sprinklers:
         self.LCD_Clock()
         self.IP()
         self.ProgramEnableDisable()
+    def WelcomeMessage(self, version):
+        self.LCD.home()
+        self.LCD.setCursor(3,0)
+        self.LCD.message('Welcome to\nSprinkler Python')
+        self.PISleep2()
+        self.LCD.clear()
+        self.LCD.setCursor(0, 0)
+        self.LCD.message('Version - %s' % (version))
+        self.PISleep2()
     def CharLCDPlate(self):
         self.LCD = LCD.Adafruit_CharLCDPlate()
         self.LCD.begin(16, 2)
@@ -282,21 +292,15 @@ class Sprinklers:
         self.LCD.message('IP:%s' % (s.getsockname()[0]))
     def ProgramEnableDisable(self):
         self.StartTime = self.Program[2], self.Program[3]
-        #round = 1
         while self.Program[0] == 'Disabled':
             self.LCD.backlight(self.LCD.VIOLET)
-            #if round == 1:
-                #round += 1
             self.PISleep()
             self.MySQL_Connection_Sprinkler()
             self.SprinklerProgram()
             self.LCD_Clock()
             self.IP()
-        #round = 1
         while self.Program[0] == 'Enabled':
             self.LCD.backlight(self.LCD.YELLOW)
-            #if round == 1:
-                #round += 1
             self.PISleep()
             self.MySQL_Connection_Sprinkler()
             self.SprinklerProgram()
@@ -314,6 +318,7 @@ class Sprinklers:
             self.Log()
         self.CheckDayofWeektoRun()
         if self.Go == True:
+            RainFound = 1
             while self.StartTime != self.WorkableTime:
                 self.FalseWeather()
                 LoopTime = self.CurrentSystemTime + datetime.timedelta(minutes=5)
@@ -324,7 +329,7 @@ class Sprinklers:
                     self.LogEvent = 'Temp'
                     self.Log()
                     self.CountDown()
-                self.CheckforRain()
+                self.CheckforRain(RainFound)
                 while self.CurrentSystemTime <= LoopTime:
                     if self.CurrentSystemTime >= displayProgramTime:
                         self.displayProgram(displayProgramTime)
@@ -332,7 +337,6 @@ class Sprinklers:
                         self.LCD.clear()
                     if self.StartTime == self.WorkableTime:
                         self.RunZones()
-                    #self.PITime()
                     if self.CurrentSystemTime >= delta:
                         self.MySQL_Connection_Sprinkler()
                         self.SprinklerProgram()
@@ -350,11 +354,18 @@ class Sprinklers:
             self.RunZones()
         if self.Go == False:
             self.PITime()
-            delta = self.CurrentSystemTime + datetime.timedelta(minutes=10)
+            delta = self.CurrentSystemTime + datetime.timedelta(hours=1)
+            NotScheduletoRun = self.CurrentSystemTime + datetime.timedelta(minutes=1)
             while self.CurrentSystemTime <= delta:
+                if self.CurrentSystemTime >= NotScheduletoRun:
+                    self.LCD.clear()
+                    self.LCD.setCursor(0, 0)
+                    self.LCD.message('Not Schedule to\nrun today')
+                    self.PISleep5()
                 self.LCD_Clock()
                 self.IP()
                 self.PITime()
+                self.PISleep1()
         self.SprinklerProgram()
         self.ProgramEnableDisable()
     def UpdateZoneLog(self, Zone):
@@ -387,16 +398,17 @@ class Sprinklers:
             self.LogEvent = 'No Network'
             self.Log()
             os.system("sudo reboot")
-    def CountDown(self, delta):
+    def CountDown(self, RainFound):
         WeatherCheckTime = self.CurrentSystemTime + datetime.timedelta(hours=2)
         self.Log()
         self.PITime()
         self.LCD.clear()
         self.LCD.backlight(self.LCD.WHITE)
-        while self.CurrentSystemTime <= delta:
+        while self.CurrentSystemTime <= self.RainDelay:
             if self.CurrentSystemTime >= WeatherCheckTime:
-                self.CheckforRain()
-            TempTime = delta - datetime.datetime.now()
+                WeatherCheckTime = self.CurrentSystemTime + datetime.timedelta(hours=2)
+                self.CheckforRain(RainFound)
+            TempTime = self.RainDelay - self.CurrentSystemTime
             self.LCD.clear()
             self.LCD.setCursor(3, 0)
             self.LCD.message(('%s Sleep') % (self.LogEvent))
@@ -768,27 +780,34 @@ class Sprinklers:
             return
         else:
             self.Go = False
-    def CheckforRain(self):
-        if self.Rain >= 0.10:
-            Day = 1
-            delta = self.CurrentSystemTime + datetime.timedelta(Day)
-            self.LogEvent = 'Rain'
-            self.CountDown(delta)
-        if self.Rain >= .49:
-            Day = 1
-            delta = self.CurrentSystemTime + datetime.timedelta(Day)
-            self.LogEvent = 'Rain'
-            self.CountDown(delta)
-        if self.Rain >= .50:
-            Day = 2
-            delta = self.CurrentSystemTime + datetime.timedelta(Day)
-            self.LogEvent = 'Rain'
-            self.CountDown(delta)
-        if self.Rain >= .75:
-            Day = 3
-            delta = self.CurrentSystemTime + datetime.timedelta(Day)
-            self.LogEvent = 'Rain'
-            self.CountDown(delta)
+    def CheckforRain(self, RainFound):
+        oldRainValue = self.Rain
+        self.WeatherDatabaseRead_Rain()
+        if self.Rain > oldRainValue:
+            if RainFound > 1:
+                if self.Rain > oldRainValue:
+                    RainFound = 1
+            if self.Rain >= .75:
+                Day = 3
+                if RainFound == 1:
+                    self.RainDelay = self.CurrentSystemTime + datetime.timedelta(Day)
+                    RainFound = RainFound + 1
+                self.LogEvent = 'Rain'
+                self.CountDown(RainFound)
+            if self.Rain >= .50:
+                Day = 2
+                if RainFound == 1:
+                    self.RainDelay = self.CurrentSystemTime + datetime.timedelta(Day)
+                    RainFound = RainFound + 1
+                self.LogEvent = 'Rain'
+                self.CountDown(RainFound)
+            if self.Rain >= .10 or self.Rain >= .49:
+                Day = 1
+                if RainFound == 1:
+                    self.RainDelay = self.CurrentSystemTime + datetime.timedelta(Day)
+                    RainFound = RainFound + 1
+                self.LogEvent = 'Rain'
+                self.CountDown(RainFound)
     def FalseWeather(self):
         FalseWeather = datetime.datetime.now() + datetime.timedelta(hours=2)
         FalseWeatherEmail = datetime.datetime.now() + datetime.timedelta(minutes=30)
