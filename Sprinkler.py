@@ -1,4 +1,5 @@
 __author__ = 'Dave Spicer'
+__version__ = '3.0.16'
 import Adafruit_CharLCDPlate as LCD
 import datetime
 import time
@@ -10,7 +11,7 @@ import smbus
 
 class Sprinklers:
     def __init__(self):
-        version = '3.0.15'
+        version = __version__
         self.SetupMCP23017()
         self.pinAllOff()
         self.GetUser()
@@ -251,7 +252,7 @@ class Sprinklers:
         if SSID == '':
             SSID = "LAN"
         self.LCD.message('Connected to:\n%s' % (SSID))
-        self.PISleep5()
+        self.PISleep2()
         self.clearLCDLeft()
         self.LCD.clear()
         if SSID != "LAN":
@@ -260,18 +261,12 @@ class Sprinklers:
             if strength == '':
                 strength = "NO WiFi Signal"
             self.LCD.message('WiFi Signal:\n%s' % (strength))
-            self.PISleep5()
+            self.PISleep2()
         self.clearLCDRight()
         self.LCD.clear()
         self.CheckNetwork()
         self.LCD.message('Internet is:\n%s' % (self.CNET))
-        self.PISleep5()
-        #if self.CNET == "ERROR\n":
-            #self.LCD.clear()
-            #self.LCD.message('System is\nRebooting')
-            #self.PISleep5()
-            #self.LCD.clear()
-            #os.system("sudo reboot")
+        self.PISleep2()
     def clearLCDRight(self):
         j=0
         while (j < 16):
@@ -354,14 +349,17 @@ class Sprinklers:
             self.RunZones()
         if self.Go == False:
             self.PITime()
-            delta = self.CurrentSystemTime + datetime.timedelta(hours=1)
+            delta = self.CurrentSystemTime + datetime.timedelta(hours=2)
             NotScheduletoRun = self.CurrentSystemTime + datetime.timedelta(minutes=1)
             while self.CurrentSystemTime <= delta:
                 if self.CurrentSystemTime >= NotScheduletoRun:
+                    NotScheduletoRun = self.CurrentSystemTime + datetime.timedelta(minutes=1)
                     self.LCD.clear()
                     self.LCD.setCursor(0, 0)
+                    self.LCD.backlight(self.LCD.VIOLET)
                     self.LCD.message('Not Schedule to\nrun today')
                     self.PISleep5()
+                    self.LCD.backlight(self.LCD.YELLOW)
                 self.LCD_Clock()
                 self.IP()
                 self.PITime()
