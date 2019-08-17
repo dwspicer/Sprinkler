@@ -1,5 +1,5 @@
 __author__ = 'Dave Spicer'
-__version__ = '3.0.16'
+__version__ = '3.0.17'
 import Adafruit_CharLCDPlate as LCD
 import datetime
 import time
@@ -139,6 +139,7 @@ class Sprinklers:
                 RainDB.append(row)
         Rain = RainDB[5]
         self.Rain = float(Rain[1:6])
+        self.Rain = (round(self.Rain,2))
         self.RainTime = int(RainDB[0])
     def MySQL_Connection_Sprinkler(self):
         self.CheckNetwork()
@@ -286,6 +287,7 @@ class Sprinklers:
         self.LCD.setCursor(0, 1)
         self.LCD.message('IP:%s' % (s.getsockname()[0]))
     def ProgramEnableDisable(self):
+        round = 1
         self.StartTime = self.Program[2], self.Program[3]
         while self.Program[0] == 'Disabled':
             self.LCD.backlight(self.LCD.VIOLET)
@@ -301,13 +303,13 @@ class Sprinklers:
             self.SprinklerProgram()
             self.LCD_Clock()
             self.IP()
-            self.WaitForStartTime()
-    def WaitForStartTime(self):
+            self.WaitForStartTime(round)
+    def WaitForStartTime(self, round):
         OrgProgram = self.Program[1]
         delta = self.CurrentSystemTime + datetime.timedelta(minutes=2)
         displayProgramTime = self.CurrentSystemTime + datetime.timedelta(minutes=5)
         self.PITime()
-        round = 1
+        #round = 1
         if round == 1:
             self.LogEvent = 'Wait'
             self.Log()
@@ -331,7 +333,7 @@ class Sprinklers:
                         displayProgramTime = self.CurrentSystemTime + datetime.timedelta(minutes=5)
                         self.LCD.clear()
                     if self.StartTime == self.WorkableTime:
-                        self.RunZones()
+                        self.RunZones(RainFound)
                     if self.CurrentSystemTime >= delta:
                         self.MySQL_Connection_Sprinkler()
                         self.SprinklerProgram()
@@ -492,7 +494,7 @@ class Sprinklers:
             self.LogDescription = 'False weather data. Need to check WeeWX database.'
         if self.LogEvent == 'No-Network':
             Subject = 'No Network - Rebooting.'
-            sendEmail == self.SendNoNetwork
+            sendEmail = self.SendNoNetwork
             self.LogDescription = 'No Network detected. Rebooting...'
         if self.LogEvent == 'Email-Issue':
             self.LogDescription = 'Something went wrong trying to send the email...'
@@ -500,8 +502,14 @@ class Sprinklers:
                           % (FormatDate, timeformat, self.LogEvent, self.Program[1], self.LogDescription)))
         self.sql.commit()
         self.sql.close()
-        if sendEmail == 'Yes':
-            self.sendEmail(timeformat, Subject)
+        try:
+            if sendEmail == 'Yes':
+                self.sendEmail(timeformat, Subject)
+        except:
+            self.LogEvent = 'Something-Happen'
+            self.LogDescription = 'Something went wrong during the check of self.sendEmail statement...'
+            self.log
+            return
     def sendEmail(self, timeformat, Subject):
             try:
                 sendto = self.EmailAddy
@@ -657,8 +665,8 @@ class Sprinklers:
         self.bus.write_byte_data(self.ADDR, self.OLATA, valueA)
         valueB = 0xff
         self.bus.write_byte_data(self.ADDR, self.OLATB, valueB)
-    def RunZones(self):
-        self.CheckforRain()
+    def RunZones(self, RainFound):
+        self.CheckforRain(RainFound)
         self.CheckRemainTime = self.CurrentTimeMinute + 3
         self.LogEvent = 'Run'
         self.Log()
@@ -781,7 +789,7 @@ class Sprinklers:
     def CheckforRain(self, RainFound):
         oldRainValue = self.Rain
         self.WeatherDatabaseRead_Rain()
-        if self.Rain > oldRainValue:
+        if self.Rain >= oldRainValue:
             if RainFound > 1:
                 if self.Rain > oldRainValue:
                     RainFound = 1
@@ -806,6 +814,8 @@ class Sprinklers:
                     RainFound = RainFound + 1
                 self.LogEvent = 'Rain'
                 self.CountDown(RainFound)
+            else:
+                return
     def FalseWeather(self):
         FalseWeather = datetime.datetime.now() + datetime.timedelta(hours=2)
         FalseWeatherEmail = datetime.datetime.now() + datetime.timedelta(minutes=30)
@@ -829,7 +839,11 @@ class Sprinklers:
             self.LCD.message(self.Program[1])
             self.PISleep5()
             self.PITime()
-
+    def Test(self):
+        print(self.Rain)
+        test = (round(self.Rain,2))
+        print(test)
+        self.CheckforRain(RainFound=0)
 
 #=======================================================================================================================
 # Things to work on
