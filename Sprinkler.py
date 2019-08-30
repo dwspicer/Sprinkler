@@ -1,5 +1,5 @@
 __author__ = 'Dave Spicer'
-__version__ = '3.0.20'
+__version__ = '3.0.21'
 import Adafruit_CharLCDPlate as LCD
 import datetime
 import time
@@ -26,12 +26,12 @@ class Sprinklers:
         self.LCD.message('Program Starting\nPlease Wait')
         self.PISleep5()
         self.LCD.clear()
-        self.LCD.message('Checking Weather\nConditions')
-        self.Weather()
-        self.LCD.clear()
         self.LCD.message('Loading Program\nParameters')
         self.SprinklerParameters()
         self.SprinklerProgram()
+        self.LCD.clear()
+        self.LCD.message('Checking Weather\nConditions')
+        self.Weather()
         self.PISleep5()
         self.LCD.clear()
         self.LCD_Clock()
@@ -103,6 +103,7 @@ class Sprinklers:
         self.LCD.clear()
     def WeatherDatabaseRead(self):
         self.MySQL_Connection_Weather()
+        noTemp = self.CurrentSystemTime + datetime.timedelta(minutes=3)
         weather = []
         self.cur = self.sql.cursor()
         self.cur.execute("Select * FROM archive ORDER BY dateTime DESC LIMIT 1")
@@ -118,18 +119,20 @@ class Sprinklers:
         weather[51] = lastOld[:-1]
         self.cur.close()
         self.Epoch = int(weather[0])
-        #try:
-        if weather[7] == 'None':
-            self.Temp_f = 55
+        self.Temp_f = weather[7]
+        print(self.Temp_f)
+        if self.Temp_f == 'None':
             self.LogEvent = 'No-Temp'
             self.Log()
+            while self.CurrentSystemTime <= noTemp:
+                self.LCD.message('No Outside Temp')
+                self.PISleep60()
+                self.PITime()
+                print(self.CurrentSystemTime)
+            self.WeatherDatabaseRead()
         else:
+            print(self.Temp_f)
             self.Temp_f = float(weather[7])
-
-        #except:
-            #self.Temp_f = 55
-            #self.LogEvent = 'No Temp'
-            #self.Log()
     def WeatherDatabaseRead_Rain(self):
         self.MySQL_Connection_Weather()
         RainDB = []
@@ -328,10 +331,11 @@ class Sprinklers:
                 if self.CurrentMonthIntVersion >= 9 and self.CurrentDayIntVersion >= 25:
                     self.LogEvent = 'Winterize'
                     self.Log()
-                if self.Temp_f <= 40:
-                    self.LogEvent = 'Temp'
-                    self.Log()
-                    self.CountDown()
+                self.BelowTempCheck(round)
+                #if self.Temp_f <= 40:
+                    #self.LogEvent = 'Temp'
+                    #self.Log()
+                    #self.CountDown()
                 self.CheckforRain(RainFound)
                 while self.CurrentSystemTime <= LoopTime:
                     if self.CurrentSystemTime >= displayProgramTime:
@@ -481,7 +485,7 @@ class Sprinklers:
             Subject = 'Time to winterize the sprinkler system'
             sendEmail = self.SendEmailWinterize
             self.LogDescription = 'Based on date you provided, It is time to winterize the sprinkler system.'
-        if self.LogEvent == 'No-Temp.':
+        if self.LogEvent == 'No-Temp':
             Subject = 'No Temperature Reporting from weather station.'
             sendEmail = self.SendEmailNoTemp
             self.LogDescription = 'No Temperature Reporting from Weather Station.'
@@ -503,21 +507,21 @@ class Sprinklers:
             self.LogDescription = 'No Network detected. Rebooting...'
         if self.LogEvent == 'Email-Issue':
             self.LogDescription = 'Something went wrong trying to send the email...'
-        try:
-            self.cur.execute(("INSERT INTO `Log` (Date, Time, Event, Program, Description) VALUES ('%s', '%s', '%s', '%s', '%s')"
+        #try:
+        self.cur.execute(("INSERT INTO `Log` (Date, Time, Event, Program, Description) VALUES ('%s', '%s', '%s', '%s', '%s')"
                               % (FormatDate, timeformat, self.LogEvent, self.Program[1], self.LogDescription)))
-            self.sql.commit()
-            self.sql.close()
-        except:
-            self.Weather()
-        try:
-            if sendEmail == 'Yes':
-                self.sendEmail(timeformat, Subject)
-        except:
-            self.LogEvent = 'Something-Happen'
-            self.LogDescription = 'Something went wrong during the check of self.sendEmail statement...'
-            self.log()
-            return
+        self.sql.commit()
+        self.sql.close()
+        #except:
+            #self.Weather()
+        #try:
+        if sendEmail == 'Yes':
+            self.sendEmail(timeformat, Subject)
+        #except:
+            #self.LogEvent = 'Something-Happen'
+            #self.LogDescription = 'Something went wrong during the check of self.sendEmail statement...'
+            #self.log()
+            #return
     def sendEmail(self, timeformat, Subject):
             try:
                 sendto = self.EmailAddy
@@ -826,13 +830,23 @@ class Sprinklers:
             self.LCD.message(self.Program[1])
             self.PISleep5()
             self.PITime()
-    def Test(self):
-        test = 20
-        #delta = self.CurrentSystemTime + datetime.timedelta(minutes=2)
-        #ZoneRunTime = self.CurrentSystemTime + datetime.timedelta(minutes=test)
-        print(self.Program[12])
-        ZoneRunTime = self.CurrentSystemTime + datetime.timedelta(minutes=int(self.Program[12]))
-        print(self.CurrentSystemTime, ZoneRunTime)
+    def BelowTempCheck(self,round):
+        BelowTempCheckTime = self.CurrentSystemTime + datetime.timedelta(hours=1)
+        if self.Temp_f >= 40:
+            self.LogEvent = 'Temp'
+            self.Log()
+            while self.CurrentSystemTime >= BelowTempCheckTime:
+                self.LCD.clear()
+                self.LCD.backlight(self.LCD.RED)
+                self.LCD.setCursor(3,0)
+                self.LCD.message('Below Temp')
+                self.LCD.setCursor(3,1)
+                self.LCD.message('Violation!')
+                self.PISleep60()
+                self.PITime()
+            self.Weather()
+            self.WaitForStartTime(round=2)
+
 
 
 
