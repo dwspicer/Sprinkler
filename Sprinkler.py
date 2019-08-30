@@ -1,5 +1,5 @@
 __author__ = 'Dave Spicer'
-__version__ = '3.0.21'
+__version__ = '3.0.22'
 import Adafruit_CharLCDPlate as LCD
 import datetime
 import time
@@ -120,7 +120,6 @@ class Sprinklers:
         self.cur.close()
         self.Epoch = int(weather[0])
         self.Temp_f = weather[7]
-        print(self.Temp_f)
         if self.Temp_f == 'None':
             self.LogEvent = 'No-Temp'
             self.Log()
@@ -128,10 +127,8 @@ class Sprinklers:
                 self.LCD.message('No Outside Temp')
                 self.PISleep60()
                 self.PITime()
-                print(self.CurrentSystemTime)
             self.WeatherDatabaseRead()
         else:
-            print(self.Temp_f)
             self.Temp_f = float(weather[7])
     def WeatherDatabaseRead_Rain(self):
         self.MySQL_Connection_Weather()
@@ -318,7 +315,6 @@ class Sprinklers:
         delta = self.CurrentSystemTime + datetime.timedelta(minutes=2)
         displayProgramTime = self.CurrentSystemTime + datetime.timedelta(minutes=5)
         self.PITime()
-        #round = 1
         if round == 1:
             self.LogEvent = 'Wait'
             self.Log()
@@ -328,14 +324,8 @@ class Sprinklers:
             while self.StartTime != self.WorkableTime:
                 self.FalseWeather()
                 LoopTime = self.CurrentSystemTime + datetime.timedelta(minutes=5)
-                if self.CurrentMonthIntVersion >= 9 and self.CurrentDayIntVersion >= 25:
-                    self.LogEvent = 'Winterize'
-                    self.Log()
-                self.BelowTempCheck(round)
-                #if self.Temp_f <= 40:
-                    #self.LogEvent = 'Temp'
-                    #self.Log()
-                    #self.CountDown()
+                self.Winterize()
+                self.BelowTempCheck()
                 self.CheckforRain(RainFound)
                 while self.CurrentSystemTime <= LoopTime:
                     if self.CurrentSystemTime >= displayProgramTime:
@@ -440,20 +430,6 @@ class Sprinklers:
             self.LCD.message(WaitMin)
             self.PISleep1()
             self.PITime()
-        #self.CheckRemainTime = self.CurrentTimeMinute + 3
-    #def CountDownRunningGreaterthanHR(self, RunTime): # Check this method runs correctly
-        #self.LCD.clear()
-        #round = 1
-        #self.LCD.setCursor(0,0)
-        #self.LCD.message('Remain Run Time')
-        #while round <= 15:
-            #round += 1
-            #WaitMin = RunTime - self.CurrentTimeMinute
-            #timeformat = '{:02d}'.format(WaitMin)
-            #self.LCD.setCursor(5, 1)
-            #self.LCD.message((':%s min') % (timeformat))
-            #self.PISleep1()
-            #self.PITime()
         #self.CheckRemainTime = self.CurrentTimeMinute + 3
     def Log(self):
         FormatDate = str(self.CurrentDateIntVersion.year) + '-' + str(self.CurrentDateIntVersion.month) + '-' + str(
@@ -705,6 +681,7 @@ class Sprinklers:
             ZRT = RTime - 1
             MinuteRemain = self.CurrentSystemTime + datetime.timedelta(minutes=ZRT)
             while self.CurrentSystemTime <= ZoneRunTime:
+                self.BelowTempCheck()
                 self.LCD_Clock()
                 if self.CurrentSystemTime <= MinuteRemain:
                     if self.CurrentSystemTime >= self.CheckRemainTime:
@@ -830,12 +807,12 @@ class Sprinklers:
             self.LCD.message(self.Program[1])
             self.PISleep5()
             self.PITime()
-    def BelowTempCheck(self,round):
+    def BelowTempCheck(self):
         BelowTempCheckTime = self.CurrentSystemTime + datetime.timedelta(hours=1)
-        if self.Temp_f >= 40:
+        if self.Temp_f <= 40:
             self.LogEvent = 'Temp'
             self.Log()
-            while self.CurrentSystemTime >= BelowTempCheckTime:
+            while self.CurrentSystemTime <= BelowTempCheckTime:
                 self.LCD.clear()
                 self.LCD.backlight(self.LCD.RED)
                 self.LCD.setCursor(3,0)
@@ -846,6 +823,10 @@ class Sprinklers:
                 self.PITime()
             self.Weather()
             self.WaitForStartTime(round=2)
+    def Winterize(self):
+        if self.CurrentMonthIntVersion >= 9 and self.CurrentDayIntVersion >= 25:
+            self.LogEvent = 'Winterize'
+            self.Log()
 
 
 
