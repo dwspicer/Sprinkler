@@ -1,5 +1,5 @@
 __author__ = 'Dave Spicer'
-__version__ = '3.0.22'
+__version__ = '3.0.23'
 import Adafruit_CharLCDPlate as LCD
 import datetime
 import time
@@ -29,9 +29,11 @@ class Sprinklers:
         self.LCD.message('Loading Program\nParameters')
         self.SprinklerParameters()
         self.SprinklerProgram()
+
         self.LCD.clear()
         self.LCD.message('Checking Weather\nConditions')
         self.Weather()
+        self.RunZones(RainFound=1)
         self.PISleep5()
         self.LCD.clear()
         self.LCD_Clock()
@@ -325,9 +327,9 @@ class Sprinklers:
                 self.FalseWeather()
                 LoopTime = self.CurrentSystemTime + datetime.timedelta(minutes=5)
                 self.Winterize()
-                self.BelowTempCheck()
                 self.CheckforRain(RainFound)
                 while self.CurrentSystemTime <= LoopTime:
+                    self.BelowTempCheck()
                     if self.CurrentSystemTime >= displayProgramTime:
                         self.displayProgram(displayProgramTime)
                         displayProgramTime = self.CurrentSystemTime + datetime.timedelta(minutes=5)
@@ -661,44 +663,41 @@ class Sprinklers:
         Zone = 1; round = 1; t = 12; p = 0
         for p in range(16):
             GPIOPin = self.Parameters[p]
-            if self.Program[t] is None:
-                self.status = 'Run Time set to Null in Database. Restarting Program'
+            if self.Program[t] == None:
+                self.status = 'No-Run-Time...'
                 self.UpdateZoneLog(Zone)
-                self.PISleep60()
-                self.__init__()
-            RTime = self.Program[t]
-            ZoneRunTime = self.CurrentSystemTime + datetime.timedelta(minutes=RTime)
-            if self.Program[t] == 0:
-                self.status = 'Zero Run Time in Database'
-                self.UpdateZoneLog(Zone)
-                self.PISleep60()
-                self.__init__()
-            if 0 <= p <= 7:
-                Bank = 'A'
-            if 8 <= p <= 15:
-                Bank = 'B'
-                GPIOPin = self.Parameters[p] - 8
-            ZRT = RTime - 1
-            MinuteRemain = self.CurrentSystemTime + datetime.timedelta(minutes=ZRT)
-            while self.CurrentSystemTime <= ZoneRunTime:
-                self.BelowTempCheck()
-                self.LCD_Clock()
-                if self.CurrentSystemTime <= MinuteRemain:
-                    if self.CurrentSystemTime >= self.CheckRemainTime:
-                        self.CheckRemainTime = self.CurrentSystemTime + datetime.timedelta(minutes=3)
-                        self.CountDownRunning(ZoneRunTime)
-                        self.LCD.clear()
-                        self.LCD_Clock()
-                        self.LCD.setCursor(0, 1)
-                        self.LCD.message('Zone %s Running.' % (Zone))
-                if round == 1:
-                    self.pinOn(Bank, GPIOPin, Zone)
-                    self.pinStatus(Bank, GPIOPin, Zone)
-                    round += 1
-                self.PITime()
-                self.PISleep()
-            self.pinOff(Bank, GPIOPin, Zone)
-            Zone += 1; round = 1; t += 1; p += 1
+                self.PISleep1()
+                Zone += 1; round = 1; t += 1; p += 1
+            else:
+                RTime = self.Program[t]
+                ZoneRunTime = self.CurrentSystemTime + datetime.timedelta(minutes=RTime)
+                if 0 <= p <= 7:
+                    Bank = 'A'
+                if 8 <= p <= 15:
+                    Bank = 'B'
+                    GPIOPin = self.Parameters[p] - 8
+                ZRT = RTime - 1
+                MinuteRemain = self.CurrentSystemTime + datetime.timedelta(minutes=ZRT)
+                while self.CurrentSystemTime <= ZoneRunTime:
+                    self.BelowTempCheck()
+                    self.CheckforRain(RainFound)
+                    self.LCD_Clock()
+                    if self.CurrentSystemTime <= MinuteRemain:
+                        if self.CurrentSystemTime >= self.CheckRemainTime:
+                            self.CheckRemainTime = self.CurrentSystemTime + datetime.timedelta(minutes=3)
+                            self.CountDownRunning(ZoneRunTime)
+                            self.LCD.clear()
+                            self.LCD_Clock()
+                            self.LCD.setCursor(0, 1)
+                            self.LCD.message('Zone %s Running.' % (Zone))
+                    if round == 1:
+                        self.pinOn(Bank, GPIOPin, Zone)
+                        self.pinStatus(Bank, GPIOPin, Zone)
+                        round += 1
+                    self.PITime()
+                    self.PISleep()
+                self.pinOff(Bank, GPIOPin, Zone)
+                Zone += 1; round = 1; t += 1; p += 1
         self.LCD.clear()
         self.status = 'Finished...'
         self.UpdateZoneLog(Zone)
@@ -827,7 +826,13 @@ class Sprinklers:
         if self.CurrentMonthIntVersion >= 9 and self.CurrentDayIntVersion >= 25:
             self.LogEvent = 'Winterize'
             self.Log()
-
+    def Test(self):
+        p = 1; t = 12
+        for p in range (16):
+            if self.Program[t] == None:
+                print('Awesome')
+            print(self.Parameters[p], self.Program[t])
+            p = p + 1; t = t + 1
 
 
 
