@@ -1,5 +1,5 @@
 __author__ = 'Dave Spicer'
-__version__ = '3.0.23'
+__version__ = '3.0.24'
 import Adafruit_CharLCDPlate as LCD
 import datetime
 import time
@@ -29,11 +29,9 @@ class Sprinklers:
         self.LCD.message('Loading Program\nParameters')
         self.SprinklerParameters()
         self.SprinklerProgram()
-
         self.LCD.clear()
         self.LCD.message('Checking Weather\nConditions')
         self.Weather()
-        self.RunZones(RainFound=1)
         self.PISleep5()
         self.LCD.clear()
         self.LCD_Clock()
@@ -826,13 +824,7 @@ class Sprinklers:
         if self.CurrentMonthIntVersion >= 9 and self.CurrentDayIntVersion >= 25:
             self.LogEvent = 'Winterize'
             self.Log()
-    def Test(self):
-        p = 1; t = 12
-        for p in range (16):
-            if self.Program[t] == None:
-                print('Awesome')
-            print(self.Parameters[p], self.Program[t])
-            p = p + 1; t = t + 1
+
 
 
 
