@@ -1,5 +1,5 @@
 __author__ = 'Dave Spicer'
-__version__ = '3.0.24'
+__version__ = '3.0.25'
 import Adafruit_CharLCDPlate as LCD
 import datetime
 import time
@@ -662,9 +662,14 @@ class Sprinklers:
         for p in range(16):
             GPIOPin = self.Parameters[p]
             if self.Program[t] == None:
+                self.LCD.clear()
+                self.LCD.message('Zone %s Running.' % (Zone))
+                self.LCD.setCursor(1,1)
+                self.LCD.message('No Run Time...')
                 self.status = 'No-Run-Time...'
                 self.UpdateZoneLog(Zone)
                 self.PISleep1()
+                self.LCD.clear()
                 Zone += 1; round = 1; t += 1; p += 1
             else:
                 RTime = self.Program[t]
@@ -703,6 +708,8 @@ class Sprinklers:
         self.Log()
         self.LogEvent = 'Wait'
         self.Log()
+        if self.LogEvent == 'Wait' and self.status == 'Finished...':
+            self.ProgramEnableDisable()
     def CheckZoneisRunning(self, state, bank, pin, Zone):
         if state == False:
             self.pinOn(self,bank, pin, Zone)
@@ -831,7 +838,6 @@ class Sprinklers:
 #=======================================================================================================================
 # Things to work on
 # - Create a setup.py installer.
-# - Add math for runtime for when NULL
-
+# - Run Time Should not display if there is less than a minute left in the program
 run = Sprinklers()
 
