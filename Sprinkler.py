@@ -1,5 +1,5 @@
 __author__ = 'Dave Spicer'
-__version__ = '3.0.25'
+__version__ = '3.0.26'
 import Adafruit_CharLCDPlate as LCD
 import datetime
 import time
@@ -121,9 +121,10 @@ class Sprinklers:
         self.Epoch = int(weather[0])
         self.Temp_f = weather[7]
         if self.Temp_f == 'None':
-            self.LogEvent = 'No-Temp'
+            self.LogEvent = 'No-Temp...'
             self.Log()
             while self.CurrentSystemTime <= noTemp:
+                self.LCD.clear()
                 self.LCD.message('No Outside Temp')
                 self.PISleep60()
                 self.PITime()
@@ -236,7 +237,7 @@ class Sprinklers:
             self.Program.append(row[26])
             self.Program.append(row[27])
         if self.Program == []:
-            self.LogEvent = 'All'
+            self.LogEvent = 'All...'
             self.Log()
             self.Enabled = 'Disabled'
             self.StartTimeHR = 0
@@ -289,7 +290,7 @@ class Sprinklers:
     def IP(self):
         self.CheckNetwork()
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("1.1.1.1", 80)) # Change ping address to local network
+        s.connect(("10.10.202.254", 80))
         self.LCD.setCursor(0, 1)
         self.LCD.message('IP:%s' % (s.getsockname()[0]))
     def ProgramEnableDisable(self):
@@ -316,11 +317,11 @@ class Sprinklers:
         displayProgramTime = self.CurrentSystemTime + datetime.timedelta(minutes=5)
         self.PITime()
         if round == 1:
-            self.LogEvent = 'Wait'
+            self.LogEvent = 'Wait...'
             self.Log()
         self.CheckDayofWeektoRun()
+        RainFound = 1
         if self.Go == True:
-            RainFound = 1
             while self.StartTime != self.WorkableTime:
                 self.FalseWeather()
                 LoopTime = self.CurrentSystemTime + datetime.timedelta(minutes=5)
@@ -352,16 +353,21 @@ class Sprinklers:
         if self.Go == False:
             self.PITime()
             delta = self.CurrentSystemTime + datetime.timedelta(hours=2)
-            NotScheduletoRun = self.CurrentSystemTime + datetime.timedelta(minutes=1)
+            NotScheduletoRun = self.CurrentSystemTime + datetime.timedelta(minutes=5)
+            CheckSprinklerProgram = self.CurrentSystemTime + datetime.timedelta(minutes=15)
             while self.CurrentSystemTime <= delta:
                 if self.CurrentSystemTime >= NotScheduletoRun:
-                    NotScheduletoRun = self.CurrentSystemTime + datetime.timedelta(minutes=1)
+                    NotScheduletoRun = self.CurrentSystemTime + datetime.timedelta(minutes=5)
                     self.LCD.clear()
                     self.LCD.setCursor(0, 0)
                     self.LCD.backlight(self.LCD.VIOLET)
                     self.LCD.message('Not Schedule to\nrun today')
                     self.PISleep5()
+                    self.CheckforRain(RainFound)
                     self.LCD.backlight(self.LCD.YELLOW)
+                if self.CurrentSystemTime >= CheckSprinklerProgram:
+                    CheckSprinklerProgram = self.CurrentSystemTime + datetime.timedelta(minutes=15)
+                    self.SprinklerProgram()
                 self.LCD_Clock()
                 self.IP()
                 self.PITime()
@@ -370,7 +376,6 @@ class Sprinklers:
         self.ProgramEnableDisable()
     def UpdateZoneLog(self, Zone):
         FormatDate = str(self.CurrentDateIntVersion.year) + '-' + str(self.CurrentDateIntVersion.month) + '-' + str(self.CurrentDateIntVersion.day)
-        #FormatDate = str(self.CurrentYear) + '-' + str(self.CurrentMonth) + '-' + str(self.CurrentDay)
         FormatTime = str(self.CurrentTimeHour) + ':' + str(self.CurrentTimeMinute) + ':' + str(self.CurrentTimeSecond)
         self.MySQL_Connection_Sprinkler()
         ZoneLog = []
@@ -395,7 +400,7 @@ class Sprinklers:
             self.LCD.message('System is\nRebooting')
             self.PISleep5()
             self.LCD.clear()
-            self.LogEvent = 'No Network'
+            self.LogEvent = 'No-Network...'
             self.Log()
             os.system("sudo reboot")
     def CountDown(self, RainFound):
@@ -411,12 +416,12 @@ class Sprinklers:
             TempTime = self.RainDelay - self.CurrentSystemTime
             self.LCD.clear()
             self.LCD.setCursor(3, 0)
-            self.LCD.message(('%s Sleep') % (self.LogEvent))
+            self.LCD.message('%s Sleep' % (self.LogEvent))  # This will display Email issue also
             self.LCD.setCursor(0, 1)
-            self.LCD.message('%s' % (TempTime)) #Format Time to HH:MM:SS
+            self.LCD.message('%s' % (TempTime))
             self.PITime()
             self.PISleep1()
-        self.LogEvent = 'Resume'
+        self.LogEvent = 'Resume...'
         self.Log()
     def CountDownRunning(self, ZoneRunTime):
         self.LCD.clear()
@@ -424,80 +429,72 @@ class Sprinklers:
         self.LCD.setCursor(0,0)
         self.LCD.message('Remain Run Time')
         while self.CurrentSystemTime <= round:
-            #round = self.CurrentSystemTime + datetime.timedelta(seconds=15)
             WaitMin = ZoneRunTime - self.CurrentSystemTime
             self.LCD.setCursor(1, 1)
             self.LCD.message(WaitMin)
             self.PISleep1()
             self.PITime()
-        #self.CheckRemainTime = self.CurrentTimeMinute + 3
     def Log(self):
         FormatDate = str(self.CurrentDateIntVersion.year) + '-' + str(self.CurrentDateIntVersion.month) + '-' + str(
             self.CurrentDateIntVersion.day)
         timeformat = '{:02d}:{:02d}'.format(self.CurrentTimeHour, self.CurrentTimeMinute)
         self.MySQL_Connection_Sprinkler()
         self.cur = self.sql.cursor()
-        if self.LogEvent == 'Rain':
+        if self.LogEvent == 'Rain...':
             Subject = 'Rain Detected at'
             sendEmail = self.SendEmailRain
             self.LogDescription = 'Rain Detected Waiting for countdown timer to expire.'
-        if self.LogEvent == 'Wait':
+        if self.LogEvent == 'Wait...':
             Subject = 'Waiting to Start the ' + self.Program[1] + ' program at '
             sendEmail = self.SendEmailWait
             self.LogDescription = 'Program is waiting to start the sprinkler System.'
-        if self.LogEvent == 'Resume':
+        if self.LogEvent == 'Resume...':
             Subject = 'Everything good to resume the ' + self.Program[1] + ' at '
             sendEmail = self.SendEmailResume
             self.LogDescription = 'Resuming normal operation.'
-        if self.LogEvent == 'All':
+        if self.LogEvent == 'All...':
             Subject = 'All Programs Disabled at'
             sendEmail = self.SendEmailAll
             self.LogDescription = 'All programs are disabled - Please enable to continue.'
-        if self.LogEvent == 'Temp':
+        if self.LogEvent == 'Temp...':
             Subject = 'Temperature Violation Detected at'
             sendEmail = self.SendEmailTemp
             self.LogDescription = 'Temperature is below desired range to run sprinklers.'
-        if self.LogEvent == 'Winterize':
+        if self.LogEvent == 'Winterize...':
             Subject = 'Time to winterize the sprinkler system'
             sendEmail = self.SendEmailWinterize
             self.LogDescription = 'Based on date you provided, It is time to winterize the sprinkler system.'
-        if self.LogEvent == 'No-Temp':
+        if self.LogEvent == 'No-Temp...':
             Subject = 'No Temperature Reporting from weather station.'
             sendEmail = self.SendEmailNoTemp
             self.LogDescription = 'No Temperature Reporting from Weather Station.'
-        if self.LogEvent == 'Run':
+        if self.LogEvent == 'Run...':
             Subject = 'Sprinkler System has begun running at'
             sendEmail = self.SendEmailRun
             self.LogDescription = 'Sprinkler System has begun to run.'
-        if self.LogEvent == 'Done':
+        if self.LogEvent == 'Done...':
             Subject = 'Finished at'
             sendEmail = self.SendEmailDone
             self.LogDescription = 'All Zones have finished running.'
-        if self.LogEvent == 'False':
+        if self.LogEvent == 'False...':
             Subject = 'False Weather. Need to fix the weewx database'
             sendEmail = 'Yes'
             self.LogDescription = 'False weather data. Need to check WeeWX database.'
-        if self.LogEvent == 'No-Network':
+        if self.LogEvent == 'No-Network...':
             Subject = 'No Network - Rebooting.'
             sendEmail = self.SendNoNetwork
             self.LogDescription = 'No Network detected. Rebooting...'
         if self.LogEvent == 'Email-Issue':
             self.LogDescription = 'Something went wrong trying to send the email...'
-        #try:
         self.cur.execute(("INSERT INTO `Log` (Date, Time, Event, Program, Description) VALUES ('%s', '%s', '%s', '%s', '%s')"
                               % (FormatDate, timeformat, self.LogEvent, self.Program[1], self.LogDescription)))
         self.sql.commit()
         self.sql.close()
-        #except:
-            #self.Weather()
-        #try:
-        if sendEmail == 'Yes':
-            self.sendEmail(timeformat, Subject)
-        #except:
-            #self.LogEvent = 'Something-Happen'
-            #self.LogDescription = 'Something went wrong during the check of self.sendEmail statement...'
-            #self.log()
-            #return
+        try:
+            if sendEmail == 'Yes':
+                self.sendEmail(timeformat, Subject)
+        except:
+            print('Something not right')
     def sendEmail(self, timeformat, Subject):
             try:
                 sendto = self.EmailAddy
@@ -510,7 +507,7 @@ class Sprinklers:
                 smtpserver.ehlo()
                 smtpserver.login(user, password)
                 header = 'To:' + sendto + '\n' + 'From: ' + user + '\n' + 'Subject:' + Subject + ' ' + timeformat + '\n'
-                msgbody = header + '\nDate: ' + str(self.CurrentDateIntVersion) + '\nTime: ' + timeformat + '\nEvent: ' + self.LogEvent + ' ' + self.Program[1] + '\nDescription: ' + self.LogDescription + '\nRain Amount: ' + str(self.Rain)
+                msgbody = header + '\nDate: ' + str(self.CurrentDateIntVersion) + '\nTime: ' + timeformat + '\nEvent: ' + self.LogEvent + '\nProgram: ' + self.Program[1] + '\nDescription: ' + self.LogDescription + '\nRain Amount: ' + str(self.Rain)
                 smtpserver.sendmail(user, sendto, msgbody)
                 smtpserver.close()
             except:
@@ -656,7 +653,7 @@ class Sprinklers:
     def RunZones(self, RainFound):
         self.CheckforRain(RainFound)
         self.CheckRemainTime = self.CurrentSystemTime + datetime.timedelta(minutes=3)
-        self.LogEvent = 'Run'
+        self.LogEvent = 'Run...'
         self.Log()
         Zone = 1; round = 1; t = 12; p = 0
         for p in range(16):
@@ -704,9 +701,9 @@ class Sprinklers:
         self.LCD.clear()
         self.status = 'Finished...'
         self.UpdateZoneLog(Zone)
-        self.LogEvent = 'Done'
+        self.LogEvent = 'Done...'
         self.Log()
-        self.LogEvent = 'Wait'
+        self.LogEvent = 'Wait...'
         self.Log()
         if self.LogEvent == 'Wait' and self.status == 'Finished...':
             self.ProgramEnableDisable()
@@ -714,7 +711,7 @@ class Sprinklers:
         if state == False:
             self.pinOn(self,bank, pin, Zone)
     def RestBetweenZones(self, Zone):
-        round = 1
+        #round = 1
         rest = self.CurrentTimeMinute + self.Program[4]
         RestEndTime = self.CurrentTimeHour, rest
         self.LCD.clear()
@@ -770,21 +767,21 @@ class Sprinklers:
                 if RainFound == 1:
                     self.RainDelay = self.CurrentSystemTime + datetime.timedelta(Day)
                     RainFound = RainFound + 1
-                self.LogEvent = 'Rain'
+                self.LogEvent = 'Rain...'
                 self.CountDown(RainFound)
             if self.Rain >= .50:
                 Day = 2
                 if RainFound == 1:
                     self.RainDelay = self.CurrentSystemTime + datetime.timedelta(Day)
                     RainFound = RainFound + 1
-                self.LogEvent = 'Rain'
+                self.LogEvent = 'Rain...'
                 self.CountDown(RainFound)
             if self.Rain >= .10 or self.Rain >= .49:
                 Day = 1
                 if RainFound == 1:
                     self.RainDelay = self.CurrentSystemTime + datetime.timedelta(Day)
                     RainFound = RainFound + 1
-                self.LogEvent = 'Rain'
+                self.LogEvent = 'Rain...'
                 self.CountDown(RainFound)
             else:
                 return
@@ -794,7 +791,7 @@ class Sprinklers:
         if self.Rain > 5:
             while self.CurrentSystemTime < FalseWeather:
                 if self.CurrentSystemTime > FalseWeatherEmail:
-                    self.LogEvent = 'False'
+                    self.LogEvent = 'False...'
                     self.Log()
                     FalseWeatherEmail = datetime.datetime.now() + datetime.timedelta(minutes=30)
                 self.Rain = 0
@@ -811,10 +808,20 @@ class Sprinklers:
             self.LCD.message(self.Program[1])
             self.PISleep5()
             self.PITime()
+            if self.Program[1] == 'Every other Day':
+                self.LCD.clear()
+                self.LCD.setCursor(1,0)
+                self.LCD.message('Next Day to Run')
+                if self.Go == True:
+                    self.LCD.setCursor(0, 6)
+                    self.LCD.message('Today')
+                else:
+                    self.LCD.setCursor(0,4)
+                    self.LCD.message('Not Today')
     def BelowTempCheck(self):
         BelowTempCheckTime = self.CurrentSystemTime + datetime.timedelta(hours=1)
-        if self.Temp_f <= 40:
-            self.LogEvent = 'Temp'
+        if self.Temp_f <= 45:
+            self.LogEvent = 'Temp...'
             self.Log()
             while self.CurrentSystemTime <= BelowTempCheckTime:
                 self.LCD.clear()
@@ -828,8 +835,8 @@ class Sprinklers:
             self.Weather()
             self.WaitForStartTime(round=2)
     def Winterize(self):
-        if self.CurrentMonthIntVersion >= 9 and self.CurrentDayIntVersion >= 25:
-            self.LogEvent = 'Winterize'
+        if self.CurrentMonthIntVersion >= 10 and self.CurrentDayIntVersion >= 5:
+            self.LogEvent = 'Winterize...'
             self.Log()
 
 
