@@ -1,5 +1,6 @@
 __author__ = 'Dave Spicer'
-__version__ = '3.0.26'
+__version__ = '3.1.2'
+
 import Adafruit_CharLCDPlate as LCD
 import datetime
 import time
@@ -36,6 +37,7 @@ class Sprinklers:
         self.LCD.clear()
         self.LCD_Clock()
         self.IP()
+        self.LoadUserDefinedParameters()
         self.ProgramEnableDisable()
     def WelcomeMessage(self, version):
         self.LCD.home()
@@ -551,6 +553,16 @@ class Sprinklers:
         self.SendEmailRun = user[12]
         self.SendEmailDone = user[13]
         self.SendNoNetwork = user[14]
+    def LoadUserDefinedParameters(self):
+        self.MySQL_Connection_Sprinkler()
+        UserDefined = []
+        self.cur = self.sql.cursor()
+        self.cur.execute("Select * FROM UserDefinedParameters")
+        results = self.cur.fetchall()
+        self.cur.close()
+        for row in results:
+            UserDefined.append(row[0])
+        self.BelowTempCheckvalue = UserDefined[0]
     def Configuration(self):
         self.MySQL_Connection_Sprinkler()
         Config = []
@@ -820,7 +832,7 @@ class Sprinklers:
                     self.LCD.message('Not Today')
     def BelowTempCheck(self):
         BelowTempCheckTime = self.CurrentSystemTime + datetime.timedelta(hours=1)
-        if self.Temp_f <= 45:
+        if self.Temp_f <= self.BelowTempCheckvalue:
             self.LogEvent = 'Temp...'
             self.Log()
             while self.CurrentSystemTime <= BelowTempCheckTime:

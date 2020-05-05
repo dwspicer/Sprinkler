@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="1caa4398-88ab-4d2b-9644-3e2df8c0cd07" name="Sprinkler">
+        <fileTransfer rootFolder="/home/pi/Sprinkler/TestProgram1" accessType="SFTP" host="sprinkler.spicertech.info" port="22" sshConfigId="080bb780-ea8c-4e4f-bc3a-6aa64327662e" sshConfig="pi@sprinkler.spicertech.info:22 password">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>
